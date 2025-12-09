@@ -8,6 +8,7 @@ import {
   IonItem,
   IonLabel,
   IonRadio,
+  IonRadioGroup,
   IonList,
   IonAvatar,
   IonText,
@@ -15,13 +16,13 @@ import {
 } from "@ionic/react";
 
 const LobbyPage = () => {
-  // Example contestants (static for now)
   const [contestants, setContestants] = useState([
     {
       id: "example1",
       name: "Tracer Adams",
       avatar: "",
-      selected: null,      // "burger" | "fries" | null
+      selected: null,       // current choice: "burger" | "fries" | null
+      committedVote: null,  // what we've already counted
       burgerVotes: 0,
       friesVotes: 0,
     },
@@ -30,6 +31,7 @@ const LobbyPage = () => {
       name: "Wings McGee",
       avatar: "",
       selected: null,
+      committedVote: null,
       burgerVotes: 0,
       friesVotes: 0,
     },
@@ -38,12 +40,13 @@ const LobbyPage = () => {
       name: "FryLord9000",
       avatar: "",
       selected: null,
+      committedVote: null,
       burgerVotes: 0,
       friesVotes: 0,
     },
   ]);
 
-  // Just change the *selected* choice; doesn't affect tallies yet
+  // Update which choice is selected for a contestant (but don't touch tallies yet)
   const handleSelect = (id, choice) => {
     setContestants((prev) =>
       prev.map((c) =>
@@ -57,7 +60,9 @@ const LobbyPage = () => {
     );
   };
 
-  // When Enter Vote is pressed, increment the tally for the selected side
+  // When Enter Vote is pressed:
+  // - If no previous vote: add 1 to selected side
+  // - If previous vote exists and changed: move 1 from old side to new side
   const handleEnterVote = (id) => {
     setContestants((prev) =>
       prev.map((c) => {
@@ -66,14 +71,33 @@ const LobbyPage = () => {
 
         let burgerVotes = c.burgerVotes;
         let friesVotes = c.friesVotes;
+        const prevVote = c.committedVote;
+        const newVote = c.selected;
 
-        if (c.selected === "burger") burgerVotes += 1;
-        if (c.selected === "fries") friesVotes += 1;
+        // If the vote hasn't changed, do nothing
+        if (prevVote === newVote) {
+          return c;
+        }
+
+        // Remove previous vote from tallies if there was one
+        if (prevVote === "burger") {
+          burgerVotes = Math.max(0, burgerVotes - 1);
+        } else if (prevVote === "fries") {
+          friesVotes = Math.max(0, friesVotes - 1);
+        }
+
+        // Add new vote
+        if (newVote === "burger") {
+          burgerVotes += 1;
+        } else if (newVote === "fries") {
+          friesVotes += 1;
+        }
 
         return {
           ...c,
           burgerVotes,
           friesVotes,
+          committedVote: newVote, // remember what we've counted
         };
       })
     );
@@ -88,7 +112,13 @@ const LobbyPage = () => {
       </IonHeader>
 
       <IonContent fullscreen>
-        <div style={{ padding: "16px", maxWidth: "600px", margin: "0 auto" }}>
+        <div
+          style={{
+            padding: "16px",
+            maxWidth: "800px",
+            margin: "0 auto",
+          }}
+        >
           <h2 style={{ marginBottom: "12px" }}>Vote Burger or Fries</h2>
 
           <IonList>
@@ -116,39 +146,73 @@ const LobbyPage = () => {
                 </IonAvatar>
 
                 {/* Name */}
-                <IonLabel>{contestant.name}</IonLabel>
+                <IonLabel className="ion-text-wrap">
+                  {contestant.name}
+                </IonLabel>
 
-                {/* 🍔 + radio */}
-                <span style={{ marginRight: "6px" }}>🍔</span>
-                <IonRadio
-                  checked={contestant.selected === "burger"}
-                  onIonChange={() => handleSelect(contestant.id, "burger")}
-                />
-
-                {/* 🍟 + radio */}
-                <span style={{ marginLeft: "14px", marginRight: "6px" }}>
-                  🍟
-                </span>
-                <IonRadio
-                  checked={contestant.selected === "fries"}
-                  onIonChange={() => handleSelect(contestant.id, "fries")}
-                />
-
-                {/* Tallies */}
-                <IonText style={{ marginLeft: "14px", fontSize: "0.9rem" }}>
-                  {contestant.burgerVotes} | {contestant.friesVotes}
-                </IonText>
-
-                {/* Enter Vote button at end of line */}
-                <IonButton
-                  size="small"
+                {/* Controls cluster on the right */}
+                <div
                   slot="end"
-                  onClick={() => handleEnterVote(contestant.id)}
-                  disabled={!contestant.selected}
-                  style={{ marginLeft: "8px" }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    marginLeft: "16px",
+                    flexWrap: "wrap",
+                    justifyContent: "flex-end",
+                  }}
                 >
-                  Enter Vote
-                </IonButton>
+                  {/* Radio group: burger / fries */}
+                  <IonRadioGroup
+                    value={contestant.selected}
+                    onIonChange={(e) =>
+                      handleSelect(contestant.id, e.detail.value)
+                    }
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    {/* 🍔 + radio */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <span>🍔</span>
+                      <IonRadio value="burger" />
+                    </div>
+
+                    {/* 🍟 + radio */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <span>🍟</span>
+                      <IonRadio value="fries" />
+                    </div>
+                  </IonRadioGroup>
+
+                  {/* Tallies */}
+                  <IonText style={{ fontSize: "0.9rem" }}>
+                    {contestant.burgerVotes} | {contestant.friesVotes}
+                  </IonText>
+
+                  {/* Enter Vote button */}
+                  <IonButton
+                    size="small"
+                    onClick={() => handleEnterVote(contestant.id)}
+                    disabled={!contestant.selected}
+                  >
+                    Enter Vote
+                  </IonButton>
+                </div>
               </IonItem>
             ))}
           </IonList>

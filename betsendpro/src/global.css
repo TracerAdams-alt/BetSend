@@ -73,3 +73,12 @@
     background: rgba(255, 255, 255, 0.15);
   }
   
+  ion-radio {
+    --color: #fff;
+    --color-checked: #fff;
+    --border-color: #fff;
+    --border-color-checked: #fff;
+    --inner-border-width: 2px;
+    filter: drop-shadow(0 0 3px #ffffffaa);
+  }
+  
