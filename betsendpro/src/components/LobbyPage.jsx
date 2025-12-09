@@ -46,7 +46,6 @@ const LobbyPage = () => {
     },
   ]);
 
-  // Update which choice is selected for a contestant (but don't touch tallies yet)
   const handleSelect = (id, choice) => {
     setContestants((prev) =>
       prev.map((c) =>
@@ -60,9 +59,6 @@ const LobbyPage = () => {
     );
   };
 
-  // When Enter Vote is pressed:
-  // - If no previous vote: add 1 to selected side
-  // - If previous vote exists and changed: move 1 from old side to new side
   const handleEnterVote = (id) => {
     setContestants((prev) =>
       prev.map((c) => {
@@ -97,7 +93,7 @@ const LobbyPage = () => {
           ...c,
           burgerVotes,
           friesVotes,
-          committedVote: newVote, // remember what we've counted
+          committedVote: newVote,
         };
       })
     );
@@ -108,6 +104,20 @@ const LobbyPage = () => {
       <IonHeader translucent={true}>
         <IonToolbar color="dark">
           <IonTitle>Contestant Voter</IonTitle>
+
+          {/* 🔹 Sign Up button back in the header */}
+          <IonButton
+            slot="end"
+            routerLink="/signup"
+            size="small"
+            color="primary"
+            style={{
+              marginRight: "8px",
+              "--border-radius": "6px",
+            }}
+          >
+            Sign Up
+          </IonButton>
         </IonToolbar>
       </IonHeader>
 
