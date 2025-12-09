@@ -1,24 +1,11 @@
-// ==============================
-//  Firebase Initialization File
-//  Safe, clean, production-ready
-// ==============================
-
+// =======================
+//  FIREBASE INITIALIZATION
+// =======================
 import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-} from "firebase/auth";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 
-import { getFirestore } from "firebase/firestore";
-
-// ------------------------------
-// 🔥 Your Firebase configuration
-// ------------------------------
+// Your Firebase Config (unchanged)
 const firebaseConfig = {
   apiKey: "AIzaSyDLKnWZZbUKeV8GxQuqKED1nhnV8Q2UNPM",
   authDomain: "betsendproject.firebaseapp.com",
@@ -29,32 +16,31 @@ const firebaseConfig = {
   measurementId: "G-32X0B5N8R8"
 };
 
-// ------------------------------
-// 🔥 Initialize Firebase services
-// ------------------------------
+// Init Firebase
 const app = initializeApp(firebaseConfig);
 
-// Authentication
+// Auth + Provider
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Firestore Database
+// Firestore
 export const db = getFirestore(app);
 
-// ------------------------------
-// 🔥 Re-export useful auth helpers
-// ------------------------------
-export {
-  signInWithPopup,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-};
 
-// ------------------------------
-// Optional: expose app for debugging
-// ------------------------------
-// window.firebaseApp = app;
+// ===========================================
+//  AUTO-CREATE CONTESTANT WHEN USER REGISTERS
+// ===========================================
+export async function createContestantIfMissing(uid) {
+  const ref = doc(db, "contestants", uid);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      burgerVotes: 0,
+      friesVotes: 0,
+      createdAt: Date.now()
+    });
+  }
+}
 
 export default app;

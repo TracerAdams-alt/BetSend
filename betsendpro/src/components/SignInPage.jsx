@@ -5,53 +5,107 @@ import {
   IonToolbar,
   IonTitle,
   IonContent,
-  IonList,
   IonItem,
   IonLabel,
   IonInput,
   IonButton,
-  IonText
+  IonText,
 } from "@ionic/react";
 
-import {
-  auth,
-  googleProvider,
-  signInWithPopup,
-  signInWithEmailAndPassword
-} from "../firebase";
+import { auth, googleProvider, db, createContestantIfMissing } from "../firebase";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 const SignInPage = () => {
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+  });
+
   const [message, setMessage] = useState("");
 
   const handleChange = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.detail.value }));
+    setForm((prev) => ({
+      ...prev,
+      [field]: e.detail.value,
+    }));
   };
 
+  // ====================================================
+  // 🚀 HANDLE EMAIL / PASSWORD SIGN-IN
+  // ====================================================
   const handleEmailSignIn = async (e) => {
     e.preventDefault();
     setMessage("");
 
     try {
-      await signInWithEmailAndPassword(auth, form.email, form.password);
+      const result = await signInWithEmailAndPassword(
+        auth,
+        form.email,
+        form.password
+      );
+
+      const user = result.user;
+
+      // Ensure Firestore profile exists
+      const userRef = doc(db, "users", user.uid);
+      const snap = await getDoc(userRef);
+
+      if (!snap.exists()) {
+        await setDoc(userRef, {
+          firstName: "",
+          lastName: "",
+          photoDataUrl: "",
+          wings: [],
+          burgerVotes: 0,
+          friesVotes: 0,
+          createdAt: Date.now(),
+        });
+      }
+
+      // Ensure contestant entry exists
+      await createContestantIfMissing(user.uid);
+
       setMessage("Signed in successfully!");
     } catch (err) {
       console.error(err);
-      setMessage("Sign-in failed. Check your email and password.");
+      setMessage("Login failed: " + err.message);
     }
   };
 
+  // ====================================================
+  // 🚀 GOOGLE SIGN-IN
+  // ====================================================
   const handleGoogleSignIn = async () => {
-    try {
-      setMessage("");
-      const result = await signInWithPopup(auth, googleProvider);
+    setMessage("");
 
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      const nameOrEmail = user.displayName || user.email;
-      setMessage("Signed in with Google as " + nameOrEmail);
+
+      // Ensure Firestore profile exists
+      const userRef = doc(db, "users", user.uid);
+      const snap = await getDoc(userRef);
+
+      if (!snap.exists()) {
+        await setDoc(userRef, {
+          firstName: user.displayName?.split(" ")[0] || "",
+          lastName: user.displayName?.split(" ")[1] || "",
+          photoDataUrl: user.photoURL || "",
+          wings: [],
+          burgerVotes: 0,
+          friesVotes: 0,
+          createdAt: Date.now(),
+        });
+      }
+
+      // Ensure contestant entry exists
+      await createContestantIfMissing(user.uid);
+
+      setMessage("Signed in with Google!");
     } catch (err) {
-      console.error(err);
-      setMessage("Google sign-in failed. Please try again.");
+      console.error("Google sign-in error:", err);
+      setMessage("Google sign-in failed.");
     }
   };
 
@@ -66,8 +120,14 @@ const SignInPage = () => {
       </IonHeader>
 
       <IonContent fullscreen>
-        <div style={{ padding: "16px", maxWidth: "480px", margin: "0 auto" }}>
-          <h2 style={{ marginBottom: "12px" }}>Welcome back!</h2>
+        <div
+          style={{
+            padding: "16px",
+            maxWidth: "480px",
+            margin: "0 auto",
+          }}
+        >
+          <h2>Welcome Back</h2>
           <p style={{ opacity: 0.8 }}>Sign in to continue.</p>
 
           {message && (
@@ -76,47 +136,43 @@ const SignInPage = () => {
             </IonText>
           )}
 
-          {/* GOOGLE SIGN-IN */}
+          {/* GOOGLE LOGIN */}
           <IonButton
             expand="block"
             color="light"
             onClick={handleGoogleSignIn}
-            style={{ marginTop: "16px" }}
+            style={{ marginTop: "12px" }}
           >
-            Continue with Google
+            Sign In with Google
           </IonButton>
 
-          {/* Divider */}
           <div
             style={{
               height: "1px",
               background: "rgba(255,255,255,0.2)",
-              margin: "20px 0"
+              margin: "20px 0",
             }}
           />
 
-          {/* EMAIL SIGN IN FORM */}
+          {/* EMAIL LOGIN FORM */}
           <form onSubmit={handleEmailSignIn}>
-            <IonList>
-              <IonItem>
-                <IonLabel position="stacked">Email</IonLabel>
-                <IonInput
-                  type="email"
-                  value={form.email}
-                  placeholder="you@example.com"
-                  onIonChange={handleChange("email")}
-                />
-              </IonItem>
+            <IonItem>
+              <IonLabel position="stacked">Email</IonLabel>
+              <IonInput
+                type="email"
+                value={form.email}
+                onIonChange={handleChange("email")}
+              />
+            </IonItem>
 
-              <IonItem>
-                <IonLabel position="stacked">Password</IonLabel>
-                <IonInput
-                  type="password"
-                  value={form.password}
-                  onIonChange={handleChange("password")}
-                />
-              </IonItem>
-            </IonList>
+            <IonItem>
+              <IonLabel position="stacked">Password</IonLabel>
+              <IonInput
+                type="password"
+                value={form.password}
+                onIonChange={handleChange("password")}
+              />
+            </IonItem>
 
             <IonButton
               type="submit"

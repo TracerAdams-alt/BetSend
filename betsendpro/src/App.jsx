@@ -15,19 +15,24 @@ import { Route, Redirect } from "react-router-dom";
 
 import {
   diceOutline,
-  gameControllerOutline,
   personCircleOutline,
   trophyOutline,
+  browsersOutline,  // 👈 needed for Bulletin tab
 } from "ionicons/icons";
 
+// Pages
 import LobbyPage from "./components/LobbyPage.jsx";
-import GamePage from "./components/GamePage.jsx";
+import BulletinPage from "./components/BulletinPage.jsx";   // 👈 UPDATED
 import AccountPage from "./components/AccountPage.jsx";
 import SignUpPage from "./components/SignUpPage.jsx";
 import SignInPage from "./components/SignInPage.jsx";
 import LeaderboardPage from "./components/LeaderboardPage.jsx";
-import AuthButtons from "./components/AuthButtons.jsx";
 
+// UI Components
+import AuthButtons from "./components/AuthButtons.jsx";
+import WelcomeModal from "./components/WelcomeModal.jsx";
+
+// Firebase
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -35,34 +40,23 @@ setupIonicReact();
 
 const App = () => {
   const [user, setUser] = useState(null);
-  const [authLoaded, setAuthLoaded] = useState(false); // ⭐ FIX FOR REFRESH LOOP
 
-  // Listen for real auth state
+  // Listen for login/logout state
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      setAuthLoaded(true); // ⭐ Mark authentication as fully loaded
     });
 
     return () => unsub();
   }, []);
 
-  // ⭐ Prevent app from rendering before Firebase finishes loading user session
-  if (!authLoaded) {
-    return (
-      <IonApp>
-        <div style={{ padding: 40, color: "white", textAlign: "center" }}>
-          Loading…
-        </div>
-      </IonApp>
-    );
-  }
-
   return (
     <IonApp className="casino-app">
-      <IonReactRouter>
+      {/* Welcome message modal */}
+      <WelcomeModal />
 
-        {/* 🔥 Always show Auth Buttons at the top when signed out */}
+      <IonReactRouter>
+        {/* Sign In / Sign Up bar (only shows if logged out) */}
         <AuthButtons />
 
         <IonTabs>
@@ -70,10 +64,13 @@ const App = () => {
 
             {/* MAIN ROUTES */}
             <Route path="/lobby" component={LobbyPage} exact />
-            <Route path="/game" component={GamePage} exact />
+
+            {/* BULLETIN ROUTE (replaces Game) */}
+            <Route path="/bulletin" component={BulletinPage} exact />
+
             <Route path="/leaderboard" component={LeaderboardPage} exact />
 
-            {/* PROTECTED ACCOUNT PAGE */}
+            {/* ACCOUNT PAGE — only for logged-in users */}
             <Route
               path="/account"
               exact
@@ -82,28 +79,27 @@ const App = () => {
               }
             />
 
-            {/* AUTH PAGES */}
+            {/* AUTH ROUTES */}
             <Route path="/signup" component={SignUpPage} exact />
             <Route path="/signin" component={SignInPage} exact />
 
-            {/* DEFAULT ROUTE */}
+            {/* DEFAULT REDIRECT */}
             <Route exact path="/">
               <Redirect to="/lobby" />
             </Route>
 
           </IonRouterOutlet>
 
-          {/* BOTTOM NAV TABS */}
+          {/* BOTTOM TAB BAR */}
           <IonTabBar slot="bottom">
-
             <IonTabButton tab="lobby" href="/lobby">
               <IonIcon icon={diceOutline} />
               <IonLabel>Lobby</IonLabel>
             </IonTabButton>
 
-            <IonTabButton tab="game" href="/game">
-              <IonIcon icon={gameControllerOutline} />
-              <IonLabel>Game</IonLabel>
+            <IonTabButton tab="bulletin" href="/bulletin">
+              <IonIcon icon={browsersOutline} />
+              <IonLabel>Bulletin</IonLabel>
             </IonTabButton>
 
             <IonTabButton tab="leaderboard" href="/leaderboard">
@@ -111,17 +107,14 @@ const App = () => {
               <IonLabel>Leaders</IonLabel>
             </IonTabButton>
 
-            {/* Account tab only when logged in */}
             {user && (
               <IonTabButton tab="account" href="/account">
                 <IonIcon icon={personCircleOutline} />
                 <IonLabel>Account</IonLabel>
               </IonTabButton>
             )}
-
           </IonTabBar>
         </IonTabs>
-
       </IonReactRouter>
     </IonApp>
   );
