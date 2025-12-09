@@ -6,79 +6,203 @@
 .casino-app {
     --ion-background-color: #111;
     --ion-text-color: #ffffff;
-  }
-  
-  /* Extra background texture for content */
-  .casino-background {
+}
+
+/* Extra background texture for content */
+.casino-background {
     background: radial-gradient(circle at top, #333 0, #111 40%, #000 100%);
     min-height: 100%;
-  }
-  
-  /* Center toolbar titles */
-  ion-toolbar {
+}
+
+/* Center toolbar titles */
+ion-toolbar {
     text-align: center;
-  }
-  
-  /* ============================
-        LIGHT MODE (DEFAULT)
-  ===============================*/
-  
-  body {
+}
+
+/* ============================
+      LIGHT MODE (DEFAULT)
+===============================*/
+
+body {
     background-color: #111;
     color: #ffffff;
-  }
-  
-  ion-content {
+}
+
+ion-content {
     --background: #111;
     --color: #ffffff;
-  }
-  
-  ion-toolbar {
+}
+
+ion-toolbar {
     --background: #111;
     --color: #ffffff;
-  }
-  
-  ion-tab-bar {
+}
+
+ion-tab-bar {
     --background: #111;
     --color: #ffffff;
-  }
-  
-  /* ============================
-        DARK MODE (ENABLED BY TOGGLE)
-     `body.dark` gets added by React
-  ===============================*/
-  
-  body.dark {
+}
+
+/* ============================
+    DARK MODE (OPTIONAL)
+===============================*/
+
+body.dark {
     background-color: #000;
     color: #e5e5e5;
-  }
-  
-  body.dark ion-content {
+}
+
+body.dark ion-content {
     --background: #000;
     --color: #e5e5e5;
-  }
-  
-  body.dark ion-toolbar {
+}
+
+body.dark ion-toolbar {
     --background: #000;
     --color: #e5e5e5;
-  }
-  
-  body.dark ion-tab-bar {
+}
+
+body.dark ion-tab-bar {
     --background: #000;
     --color: #e5e5e5;
-  }
-  
-  /* Optional: subtle dark-mode divider color */
-  body.dark .divider {
+}
+
+/* Subtle divider color in dark mode */
+body.dark .divider {
     background: rgba(255, 255, 255, 0.15);
-  }
-  
-  ion-radio {
+}
+
+/* Make radio buttons white and glowy */
+ion-radio {
     --color: #fff;
     --color-checked: #fff;
     --border-color: #fff;
     --border-color-checked: #fff;
     --inner-border-width: 2px;
     filter: drop-shadow(0 0 3px #ffffffaa);
-  }
-  
+}
+
+/* ============================
+      RESPONSIVE UI SUPPORT
+   (DESKTOP + BASE CLASSES)
+===============================*/
+
+/* Lobby content wrapper */
+.lobby-container {
+    padding: 16px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Section header */
+.section-title {
+    margin-bottom: 12px;
+}
+
+/* Avatar default size */
+.contestant-avatar {
+    width: 64px;
+    height: 64px;
+}
+
+/* Placeholder avatar */
+.avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+/* Name text */
+.contestant-name {
+    font-weight: bold;
+    font-size: 15px;
+}
+
+/* Wings text */
+.contestant-wings {
+    font-size: 12px;
+    opacity: 0.6;
+    margin-top: 2px;
+}
+
+/* Voting layout */
+.vote-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+/* Icon + radio pair */
+.vote-option {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Tally text */
+.vote-tally {
+    margin-left: 8px;
+}
+
+/* Vote panel */
+.vote-panel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-left: 20px;
+}
+
+/* ============================
+        MOBILE OPTIMIZATION
+===============================*/
+
+@media (max-width: 600px) {
+
+    /* Global padding shrink */
+    .mobile-padding {
+        padding: 8px !important;
+    }
+
+    /* Item shrink */
+    .contestant-item {
+        --min-height: 64px;
+    }
+
+    /* Smaller avatar */
+    .contestant-avatar {
+        width: 48px !important;
+        height: 48px !important;
+    }
+
+    /* Smaller name */
+    .contestant-name {
+        font-size: 13px !important;
+    }
+
+    /* Smaller wings text */
+    .contestant-wings {
+        font-size: 10px !important;
+    }
+
+    /* Tighter radio spacing */
+    .vote-group {
+        gap: 8px !important;
+    }
+
+    /* Smaller vote button */
+    .vote-button {
+        font-size: 12px !important;
+        --padding-start: 12px;
+        --padding-end: 12px;
+    }
+
+    /* Smaller page toolbar title */
+    .page-title {
+        font-size: 18px !important;
+    }
+}

@@ -13,7 +13,9 @@ import {
   IonText
 } from "@ionic/react";
 
-import { auth, googleProvider, signInWithPopup } from "../firebase";
+import { auth, googleProvider, db } from "../firebase";
+import { signInWithPopup } from "firebase/auth";      // ✅ FIXED IMPORT
+import { doc, setDoc } from "firebase/firestore";     // Firestore for Step 3
 
 const SignUpPage = () => {
   const [form, setForm] = useState({
@@ -26,12 +28,10 @@ const SignUpPage = () => {
   const [message, setMessage] = useState("");
 
   const handleChange = (field) => (e) => {
-    setForm(function (prev) {
-      return {
-        ...prev,
-        [field]: e.detail.value
-      };
-    });
+    setForm((prev) => ({
+      ...prev,
+      [field]: e.detail.value
+    }));
   };
 
   const handleSubmit = (e) => {
@@ -51,17 +51,51 @@ const SignUpPage = () => {
     console.log("Signup data:", form);
   };
 
+  // ⭐ GOOGLE SIGN-IN + FIRESTORE SAVE
   const handleGoogleSignIn = async () => {
     try {
       setMessage("");
 
+      // Google authentication
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      const nameOrEmail = user.displayName || user.email || "player";
-      setMessage("Signed in with Google as " + nameOrEmail);
+      const name = user.displayName || user.email || "Player";
 
-      console.log("Google user:", user);
+      // ----------------------------------------------------
+      // 🔥 Save user to Firestore (users/{uid})
+      // ----------------------------------------------------
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          name: user.displayName || "",
+          email: user.email || "",
+          avatar: user.photoURL || "",
+          createdAt: Date.now()
+        },
+        { merge: true }
+      );
+
+      // ----------------------------------------------------
+      // 🔥 Add user as contestant (contestants/{uid})
+      // ----------------------------------------------------
+      await setDoc(
+        doc(db, "contestants", user.uid),
+        {
+          name: user.displayName || "",
+          avatar: user.photoURL || "",
+          burgerVotes: 0,
+          friesVotes: 0,
+          createdAt: Date.now()
+        },
+        { merge: true }
+      );
+
+      // ----------------------------------------------------
+
+      setMessage("Signed in with Google as " + name);
+      console.log("Google user saved:", user);
+
     } catch (err) {
       console.error("Google sign-in error:", err);
       setMessage("Google sign-in failed. Please try again.");
@@ -91,9 +125,7 @@ const SignUpPage = () => {
           }}
         >
           <h2 style={{ marginBottom: "12px" }}>Join Speedfly Casino</h2>
-          <p style={{ opacity: 0.8 }}>
-            Create an account to start playing.
-          </p>
+          <p style={{ opacity: 0.8 }}>Create an account to start playing.</p>
 
           {message && (
             <IonText color={isError ? "danger" : "success"}>

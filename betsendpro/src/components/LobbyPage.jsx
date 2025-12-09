@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   IonPage,
   IonHeader,
@@ -15,214 +15,174 @@ import {
   IonButton,
 } from "@ionic/react";
 
-const LobbyPage = () => {
-  const [contestants, setContestants] = useState([
-    {
-      id: "example1",
-      name: "Tracer Adams",
-      avatar: "",
-      selected: null,       // current choice: "burger" | "fries" | null
-      committedVote: null,  // what we've already counted
-      burgerVotes: 0,
-      friesVotes: 0,
-    },
-    {
-      id: "example2",
-      name: "Wings McGee",
-      avatar: "",
-      selected: null,
-      committedVote: null,
-      burgerVotes: 0,
-      friesVotes: 0,
-    },
-    {
-      id: "example3",
-      name: "FryLord9000",
-      avatar: "",
-      selected: null,
-      committedVote: null,
-      burgerVotes: 0,
-      friesVotes: 0,
-    },
-  ]);
+import { auth, db } from "../firebase";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  collection,
+  onSnapshot
+} from "firebase/firestore";
 
+const LobbyPage = () => {
+  const [contestants, setContestants] = useState([]);
+
+  // 🔥 Real-time Firestore listener for contestants
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "users"), (snapshot) => {
+      const list = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        selected: null
+      }));
+
+      setContestants(list);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Local selection
   const handleSelect = (id, choice) => {
     setContestants((prev) =>
       prev.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              selected: choice,
-            }
-          : c
+        c.id === id ? { ...c, selected: choice } : c
       )
     );
   };
 
-  const handleEnterVote = (id) => {
-    setContestants((prev) =>
-      prev.map((c) => {
-        if (c.id !== id) return c;
-        if (!c.selected) return c;
+  // Voting logic
+  const handleEnterVote = async (contestantId) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      alert("You must be signed in to vote.");
+      return;
+    }
 
-        let burgerVotes = c.burgerVotes;
-        let friesVotes = c.friesVotes;
-        const prevVote = c.committedVote;
-        const newVote = c.selected;
+    const voterId = currentUser.uid;
+    const voteDocId = `${voterId}_${contestantId}`;
 
-        // If the vote hasn't changed, do nothing
-        if (prevVote === newVote) {
-          return c;
-        }
+    const voteRef = doc(db, "votes", voteDocId);
+    const contestantRef = doc(db, "contestants", contestantId);
 
-        // Remove previous vote from tallies if there was one
-        if (prevVote === "burger") {
-          burgerVotes = Math.max(0, burgerVotes - 1);
-        } else if (prevVote === "fries") {
-          friesVotes = Math.max(0, friesVotes - 1);
-        }
+    const prevVoteSnap = await getDoc(voteRef);
+    const previousChoice = prevVoteSnap.exists()
+      ? prevVoteSnap.data().choice
+      : null;
 
-        // Add new vote
-        if (newVote === "burger") {
-          burgerVotes += 1;
-        } else if (newVote === "fries") {
-          friesVotes += 1;
-        }
+    const contestantSnap = await getDoc(contestantRef);
+    if (!contestantSnap.exists()) return;
 
-        return {
-          ...c,
-          burgerVotes,
-          friesVotes,
-          committedVote: newVote,
-        };
-      })
-    );
+    let { burgerVotes, friesVotes } = contestantSnap.data();
+
+    const contestant = contestants.find((c) => c.id === contestantId);
+    const newChoice = contestant?.selected;
+
+    if (!newChoice) return;
+    if (newChoice === previousChoice) return;
+
+    // Remove old vote
+    if (previousChoice === "burger") burgerVotes--;
+    if (previousChoice === "fries") friesVotes--;
+
+    // Add new vote
+    if (newChoice === "burger") burgerVotes++;
+    if (newChoice === "fries") friesVotes++;
+
+    await updateDoc(contestantRef, {
+      burgerVotes,
+      friesVotes
+    });
+
+    await setDoc(voteRef, {
+      voterId,
+      contestantId,
+      choice: newChoice,
+      updatedAt: Date.now()
+    });
   };
 
   return (
     <IonPage>
       <IonHeader translucent={true}>
         <IonToolbar color="dark">
-          <IonTitle>Contestant Voter</IonTitle>
-
-          {/* 🔹 Sign Up button back in the header */}
-          <IonButton
-            slot="end"
-            routerLink="/signup"
-            size="small"
-            color="primary"
-            style={{
-              marginRight: "8px",
-              "--border-radius": "6px",
-            }}
-          >
-            Sign Up
-          </IonButton>
+          <IonTitle className="page-title">Sender Lobby</IonTitle>
         </IonToolbar>
       </IonHeader>
 
       <IonContent fullscreen>
-        <div
-          style={{
-            padding: "16px",
-            maxWidth: "800px",
-            margin: "0 auto",
-          }}
-        >
-          <h2 style={{ marginBottom: "12px" }}>Vote Burger or Fries</h2>
+        <div className="lobby-container">
+          <h2 className="section-title">Vote Here</h2>
 
           <IonList>
             {contestants.map((contestant) => (
-              <IonItem key={contestant.id} style={{ alignItems: "center" }}>
+              <IonItem key={contestant.id} className="contestant-item">
+
                 {/* Avatar */}
-                <IonAvatar slot="start">
-                  {contestant.avatar ? (
-                    <img src={contestant.avatar} alt="avatar" />
+                <IonAvatar slot="start" className="contestant-avatar">
+                  {contestant.photoDataUrl ? (
+                    <img src={contestant.photoDataUrl} alt="avatar" />
                   ) : (
-                    <div
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "20px",
-                        background: "rgba(255,255,255,0.15)",
-                      }}
-                    >
-                      ?
-                    </div>
+                    <div className="avatar-placeholder">?</div>
                   )}
                 </IonAvatar>
 
-                {/* Name */}
-                <IonLabel className="ion-text-wrap">
-                  {contestant.name}
+                {/* Name + wings */}
+                <IonLabel>
+                  <div className="contestant-name">
+                    {contestant.firstName} {contestant.lastName}
+                  </div>
+
+                  {contestant.wings?.length > 0 && (
+                    <div className="contestant-wings">
+                      Wings: {contestant.wings.join(", ")}
+                    </div>
+                  )}
                 </IonLabel>
 
-                {/* Controls cluster on the right */}
-                <div
-                  slot="end"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    marginLeft: "16px",
-                    flexWrap: "wrap",
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  {/* Radio group: burger / fries */}
-                  <IonRadioGroup
-                    value={contestant.selected}
-                    onIonChange={(e) =>
-                      handleSelect(contestant.id, e.detail.value)
-                    }
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                    }}
-                  >
-                    {/* 🍔 + radio */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      <span>🍔</span>
-                      <IonRadio value="burger" />
-                    </div>
+                {/* Vote UI */}
+                <div className="vote-panel" slot="end">
+                  {auth.currentUser ? (
+                    <>
+                      <IonRadioGroup
+                        value={contestant.selected}
+                        onIonChange={(e) =>
+                          handleSelect(contestant.id, e.detail.value)
+                        }
+                        className="vote-group"
+                      >
+                        <div className="vote-option">
+                          <span>Injury</span>
+                          <IonRadio value="burger" />
+                        </div>
 
-                    {/* 🍟 + radio */}
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      <span>🍟</span>
-                      <IonRadio value="fries" />
-                    </div>
-                  </IonRadioGroup>
+                        <div className="vote-option">
+                          <span>Fatality</span>
+                          <IonRadio value="fries" />
+                        </div>
+                      </IonRadioGroup>
 
-                  {/* Tallies */}
-                  <IonText style={{ fontSize: "0.9rem" }}>
-                    {contestant.burgerVotes} | {contestant.friesVotes}
-                  </IonText>
+                      <IonText className="vote-tally">
+                        {contestant.burgerVotes || 0} | {contestant.friesVotes || 0}
+                      </IonText>
 
-                  {/* Enter Vote button */}
-                  <IonButton
-                    size="small"
-                    onClick={() => handleEnterVote(contestant.id)}
-                    disabled={!contestant.selected}
-                  >
-                    Enter Vote
-                  </IonButton>
+                      <IonButton
+                        size="small"
+                        className="vote-button"
+                        disabled={!contestant.selected}
+                        onClick={() => handleEnterVote(contestant.id)}
+                      >
+                        Enter Vote
+                      </IonButton>
+                    </>
+                  ) : (
+                    <IonText className="guest-vote-text">
+                      Sign in to vote.
+                    </IonText>
+                  )}
                 </div>
+
               </IonItem>
             ))}
           </IonList>
