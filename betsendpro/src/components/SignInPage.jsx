@@ -5,63 +5,128 @@ import {
   IonToolbar,
   IonTitle,
   IonContent,
-  IonButton,
-  IonInput,
+  IonList,
   IonItem,
   IonLabel,
+  IonInput,
+  IonButton,
+  IonText
 } from "@ionic/react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase";
+
+import {
+  auth,
+  googleProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword
+} from "../firebase";
 
 const SignInPage = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [form, setForm] = useState({ email: "", password: "" });
   const [message, setMessage] = useState("");
 
-  const handleSignIn = async () => {
+  const handleChange = (field) => (e) => {
+    setForm((prev) => ({ ...prev, [field]: e.detail.value }));
+  };
+
+  const handleEmailSignIn = async (e) => {
+    e.preventDefault();
+    setMessage("");
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setMessage("Logged in!");
+      await signInWithEmailAndPassword(auth, form.email, form.password);
+      setMessage("Signed in successfully!");
     } catch (err) {
-      setMessage("Login failed: " + err.message);
+      console.error(err);
+      setMessage("Sign-in failed. Check your email and password.");
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setMessage("");
+      const result = await signInWithPopup(auth, googleProvider);
+
+      const user = result.user;
+      const nameOrEmail = user.displayName || user.email;
+      setMessage("Signed in with Google as " + nameOrEmail);
+    } catch (err) {
+      console.error(err);
+      setMessage("Google sign-in failed. Please try again.");
+    }
+  };
+
+  const isError = message.toLowerCase().includes("fail");
+
   return (
     <IonPage>
-      <IonHeader>
+      <IonHeader translucent={true}>
         <IonToolbar color="dark">
           <IonTitle>Sign In</IonTitle>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent>
-        <div style={{ padding: "16px" }}>
-          <IonItem>
-            <IonLabel position="stacked">Email</IonLabel>
-            <IonInput
-              type="email"
-              value={email}
-              onIonChange={(e) => setEmail(e.detail.value)}
-            />
-          </IonItem>
-
-          <IonItem>
-            <IonLabel position="stacked">Password</IonLabel>
-            <IonInput
-              type="password"
-              value={password}
-              onIonChange={(e) => setPassword(e.detail.value)}
-            />
-          </IonItem>
-
-          <IonButton expand="block" onClick={handleSignIn}>
-            Sign In
-          </IonButton>
+      <IonContent fullscreen>
+        <div style={{ padding: "16px", maxWidth: "480px", margin: "0 auto" }}>
+          <h2 style={{ marginBottom: "12px" }}>Welcome back!</h2>
+          <p style={{ opacity: 0.8 }}>Sign in to continue.</p>
 
           {message && (
-            <p style={{ marginTop: "12px" }}>{message}</p>
+            <IonText color={isError ? "danger" : "success"}>
+              <p style={{ marginTop: "12px" }}>{message}</p>
+            </IonText>
           )}
+
+          {/* GOOGLE SIGN-IN */}
+          <IonButton
+            expand="block"
+            color="light"
+            onClick={handleGoogleSignIn}
+            style={{ marginTop: "16px" }}
+          >
+            Continue with Google
+          </IonButton>
+
+          {/* Divider */}
+          <div
+            style={{
+              height: "1px",
+              background: "rgba(255,255,255,0.2)",
+              margin: "20px 0"
+            }}
+          />
+
+          {/* EMAIL SIGN IN FORM */}
+          <form onSubmit={handleEmailSignIn}>
+            <IonList>
+              <IonItem>
+                <IonLabel position="stacked">Email</IonLabel>
+                <IonInput
+                  type="email"
+                  value={form.email}
+                  placeholder="you@example.com"
+                  onIonChange={handleChange("email")}
+                />
+              </IonItem>
+
+              <IonItem>
+                <IonLabel position="stacked">Password</IonLabel>
+                <IonInput
+                  type="password"
+                  value={form.password}
+                  onIonChange={handleChange("password")}
+                />
+              </IonItem>
+            </IonList>
+
+            <IonButton
+              type="submit"
+              expand="block"
+              color="primary"
+              style={{ marginTop: "16px" }}
+            >
+              Sign In
+            </IonButton>
+          </form>
         </div>
       </IonContent>
     </IonPage>

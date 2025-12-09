@@ -13,9 +13,14 @@ import {
   IonText
 } from "@ionic/react";
 
-import { auth, googleProvider, db } from "../firebase";
-import { signInWithPopup } from "firebase/auth";      // ✅ FIXED IMPORT
-import { doc, setDoc } from "firebase/firestore";     // Firestore for Step 3
+import { auth, db, googleProvider } from "../firebase";
+
+import {
+  createUserWithEmailAndPassword,
+  signInWithPopup
+} from "firebase/auth";
+
+import { doc, setDoc } from "firebase/firestore";
 
 const SignUpPage = () => {
   const [form, setForm] = useState({
@@ -34,7 +39,47 @@ const SignUpPage = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  // ======================================================
+  // 🔥 Save user profile + contestant entry to Firestore
+  // ======================================================
+  const createUserInFirestore = async (user) => {
+    const uid = user.uid;
+
+    const firstName = user.displayName?.split(" ")[0] || "";
+    const lastName = user.displayName?.split(" ")[1] || "";
+
+    // USERS collection
+    await setDoc(
+      doc(db, "users", uid),
+      {
+        firstName,
+        lastName,
+        wings: [],
+        photoDataUrl: "",
+        updatedAt: Date.now()
+      },
+      { merge: true }
+    );
+
+    // CONTESTANTS collection
+    await setDoc(
+      doc(db, "contestants", uid),
+      {
+        burgerVotes: 0,
+        friesVotes: 0,
+        firstName,
+        lastName,
+        wings: [],
+        photoDataUrl: ""
+      },
+      { merge: true }
+    );
+  };
+
+  // ======================================================
+  // 🔥 Email/Password Signup
+  // ======================================================
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!form.username || !form.email || !form.password) {
@@ -47,61 +92,42 @@ const SignUpPage = () => {
       return;
     }
 
-    setMessage("Account created! (Fake for now)");
-    console.log("Signup data:", form);
+    try {
+      const userCred = await createUserWithEmailAndPassword(
+        auth,
+        form.email,
+        form.password
+      );
+
+      const user = userCred.user;
+
+      await createUserInFirestore(user);
+
+      setMessage("Account created! Welcome.");
+    } catch (err) {
+      console.error(err);
+      setMessage("Sign-up failed: " + err.message);
+    }
   };
 
-  // ⭐ GOOGLE SIGN-IN + FIRESTORE SAVE
+  // ======================================================
+  // 🔥 Google Sign-In
+  // ======================================================
   const handleGoogleSignIn = async () => {
     try {
-      setMessage("");
-
-      // Google authentication
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      const name = user.displayName || user.email || "Player";
+      await createUserInFirestore(user);
 
-      // ----------------------------------------------------
-      // 🔥 Save user to Firestore (users/{uid})
-      // ----------------------------------------------------
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          name: user.displayName || "",
-          email: user.email || "",
-          avatar: user.photoURL || "",
-          createdAt: Date.now()
-        },
-        { merge: true }
-      );
-
-      // ----------------------------------------------------
-      // 🔥 Add user as contestant (contestants/{uid})
-      // ----------------------------------------------------
-      await setDoc(
-        doc(db, "contestants", user.uid),
-        {
-          name: user.displayName || "",
-          avatar: user.photoURL || "",
-          burgerVotes: 0,
-          friesVotes: 0,
-          createdAt: Date.now()
-        },
-        { merge: true }
-      );
-
-      // ----------------------------------------------------
-
-      setMessage("Signed in with Google as " + name);
-      console.log("Google user saved:", user);
-
+      setMessage(`Signed in with Google as ${user.displayName}`);
     } catch (err) {
       console.error("Google sign-in error:", err);
       setMessage("Google sign-in failed. Please try again.");
     }
   };
 
+  // Error styling
   const lower = message.toLowerCase();
   const isError =
     lower.includes("failed") ||
@@ -125,7 +151,9 @@ const SignUpPage = () => {
           }}
         >
           <h2 style={{ marginBottom: "12px" }}>Join Speedfly Casino</h2>
-          <p style={{ opacity: 0.8 }}>Create an account to start playing.</p>
+          <p style={{ opacity: 0.8 }}>
+            Create an account to start playing.
+          </p>
 
           {message && (
             <IonText color={isError ? "danger" : "success"}>
@@ -133,6 +161,7 @@ const SignUpPage = () => {
             </IonText>
           )}
 
+          {/* GOOGLE SIGN-IN */}
           <IonButton
             expand="block"
             color="light"
@@ -150,16 +179,9 @@ const SignUpPage = () => {
             }}
           />
 
+          {/* EMAIL SIGN-UP FORM */}
           <form onSubmit={handleSubmit}>
             <IonList>
-              <IonItem>
-                <IonLabel position="stacked">Username</IonLabel>
-                <IonInput
-                  value={form.username}
-                  onIonChange={handleChange("username")}
-                  placeholder="LuckyPlayer123"
-                />
-              </IonItem>
 
               <IonItem>
                 <IonLabel position="stacked">Email</IonLabel>
