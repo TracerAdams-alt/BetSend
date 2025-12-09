@@ -23,10 +23,12 @@ const AccountPage = () => {
     lastName: "",
     isDarkMode: false,
     isAnonymous: false,
-    photoDataUrl: ""
+    photoDataUrl: "",
+    wingsOfChoice: []
   });
 
   const [status, setStatus] = useState("");
+  const [wingInput, setWingInput] = useState("");
 
   // Load saved profile on mount
   useEffect(() => {
@@ -52,7 +54,7 @@ const AccountPage = () => {
     }
   }, [profile]);
 
-  // Apply dark mode class to body
+  // (optional) dark mode hook, can be removed later
   useEffect(() => {
     document.body.classList.toggle("dark", profile.isDarkMode);
   }, [profile.isDarkMode]);
@@ -92,11 +94,52 @@ const AccountPage = () => {
     setStatus("Account settings saved.");
   };
 
+  const handleWingInputChange = (e) => {
+    const value = e.detail.value || "";
+    setWingInput(value);
+    setStatus("");
+  };
+
+  const handleAddWing = () => {
+    const trimmed = wingInput.trim();
+    if (!trimmed) return;
+
+    setProfile(function (prev) {
+      const prevList = Array.isArray(prev.wingsOfChoice)
+        ? prev.wingsOfChoice
+        : [];
+      return {
+        ...prev,
+        wingsOfChoice: prevList.concat(trimmed)
+      };
+    });
+
+    setWingInput("");
+    setStatus("Wing of choice added.");
+  };
+
+  const handleRemoveWing = (indexToRemove) => {
+    setProfile(function (prev) {
+      const prevList = Array.isArray(prev.wingsOfChoice)
+        ? prev.wingsOfChoice
+        : [];
+      return {
+        ...prev,
+        wingsOfChoice: prevList.filter(function (_item, index) {
+          return index !== indexToRemove;
+        })
+      };
+    });
+    setStatus("Wing of choice removed.");
+  };
+
   const displayName = profile.isAnonymous
     ? "Anonymous Player"
-    : (profile.firstName || "") + (profile.lastName ? " " + profile.lastName : "");
+    : (profile.firstName || "") +
+      (profile.lastName ? " " + profile.lastName : "");
 
-  const showRealName = !profile.isAnonymous && (profile.firstName || profile.lastName);
+  const showRealName =
+    !profile.isAnonymous && (profile.firstName || profile.lastName);
 
   const isError = false;
 
@@ -121,7 +164,7 @@ const AccountPage = () => {
               display: "flex",
               gap: "16px",
               alignItems: "center",
-              marginBottom: "20px"
+              marginBottom: "12px"
             }}
           >
             <IonAvatar style={{ width: "64px", height: "64px" }}>
@@ -158,22 +201,35 @@ const AccountPage = () => {
             </div>
           </div>
 
+          {/* Compact, left-aligned Profile Photo Upload */}
           <div style={{ marginBottom: "16px" }}>
-            <label
-              style={{
-                display: "inline-block",
-                marginBottom: "8px",
-                fontSize: "0.9rem"
-              }}
-            >
-              Profile photo
-            </label>
             <input
+              id="photoInput"
               type="file"
               accept="image/*"
               onChange={handlePhotoChange}
-              style={{ display: "block", fontSize: "0.85rem" }}
+              style={{ display: "none" }}
             />
+
+            <IonButton
+              size="small"
+              onClick={() => {
+                const el = document.getElementById("photoInput");
+                if (el) el.click();
+              }}
+              style={{
+                "--border-radius": "10px",
+                paddingLeft: "18px",
+                paddingRight: "18px",
+                fontWeight: "bold",
+                marginTop: "4px",
+                marginLeft: "0",
+                width: "fit-content"
+              }}
+              color="primary"
+            >
+              Upload Photo
+            </IonButton>
           </div>
 
           <IonList>
@@ -196,7 +252,7 @@ const AccountPage = () => {
                 disabled={profile.isAnonymous}
               />
             </IonItem>
-            
+
             <IonItem>
               <IonLabel>Anonymous mode</IonLabel>
               <IonToggle
@@ -204,6 +260,51 @@ const AccountPage = () => {
                 onIonChange={handleToggleChange("isAnonymous")}
               />
             </IonItem>
+
+            {/* Wings of choice input wrapped in a form so Enter works */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAddWing();
+              }}
+              style={{ width: "100%" }}
+            >
+              <IonItem>
+                <IonLabel position="stacked">Wings of choice</IonLabel>
+                <IonInput
+                  value={wingInput}
+                  onIonChange={handleWingInputChange}
+                  placeholder="R3X 11m, UL5 13m, Line 8m..."
+                />
+                <IonButton
+                  size="small"
+                  slot="end"
+                  type="submit"
+                >
+                  Add
+                </IonButton>
+              </IonItem>
+            </form>
+
+            {/* Wings of choice list */}
+            {Array.isArray(profile.wingsOfChoice) &&
+              profile.wingsOfChoice.map(function (wing, index) {
+                return (
+                  <IonItem key={index}>
+                    <IonLabel>{wing}</IonLabel>
+                    <IonButton
+                      size="small"
+                      fill="clear"
+                      slot="end"
+                      onClick={function () {
+                        handleRemoveWing(index);
+                      }}
+                    >
+                      Remove
+                    </IonButton>
+                  </IonItem>
+                );
+              })}
           </IonList>
 
           <IonButton
