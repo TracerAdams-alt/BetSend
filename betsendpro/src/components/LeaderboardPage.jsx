@@ -110,10 +110,10 @@ const LeaderboardPage = () => {
                     minWidth: "80px",
                   }}
                 >
-                  <IonText>🍔 {c.burgerVotes || 0}</IonText>
-                  <IonText>🍟 {c.friesVotes || 0}</IonText>
+                  <IonText>🩹 {c.burgerVotes || 0}</IonText>
+                  <IonText>💀 {c.friesVotes || 0}</IonText>
                   <IonText style={{ marginTop: "4px" }}>
-                    ⭐ <b>{c.totalVotes}</b>
+                    🗳️ <b>{c.totalVotes}</b>
                   </IonText>
                 </div>
               </IonItem>
