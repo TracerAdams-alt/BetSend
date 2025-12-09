@@ -1,0 +1,75 @@
+/* ============================
+   BASE CASINO THEME (YOUR CODE)
+===============================*/
+
+/* Color the whole app background */
+.casino-app {
+    --ion-background-color: #111;
+    --ion-text-color: #ffffff;
+  }
+  
+  /* Extra background texture for content */
+  .casino-background {
+    background: radial-gradient(circle at top, #333 0, #111 40%, #000 100%);
+    min-height: 100%;
+  }
+  
+  /* Center toolbar titles */
+  ion-toolbar {
+    text-align: center;
+  }
+  
+  /* ============================
+        LIGHT MODE (DEFAULT)
+  ===============================*/
+  
+  body {
+    background-color: #111;
+    color: #ffffff;
+  }
+  
+  ion-content {
+    --background: #111;
+    --color: #ffffff;
+  }
+  
+  ion-toolbar {
+    --background: #111;
+    --color: #ffffff;
+  }
+  
+  ion-tab-bar {
+    --background: #111;
+    --color: #ffffff;
+  }
+  
+  /* ============================
+        DARK MODE (ENABLED BY TOGGLE)
+     `body.dark` gets added by React
+  ===============================*/
+  
+  body.dark {
+    background-color: #000;
+    color: #e5e5e5;
+  }
+  
+  body.dark ion-content {
+    --background: #000;
+    --color: #e5e5e5;
+  }
+  
+  body.dark ion-toolbar {
+    --background: #000;
+    --color: #e5e5e5;
+  }
+  
+  body.dark ion-tab-bar {
+    --background: #000;
+    --color: #e5e5e5;
+  }
+  
+  /* Optional: subtle dark-mode divider color */
+  body.dark .divider {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  
