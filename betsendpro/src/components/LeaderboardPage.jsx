@@ -15,23 +15,54 @@ import {
 import { db } from "../firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 
+// Small text sanitizer to block XSS injections
+const clean = (str) =>
+  typeof str === "string"
+    ? str.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    : "";
+
 const LeaderboardPage = () => {
   const [contestants, setContestants] = useState([]);
 
-  // 🔥 Real-time leaderboard listener
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "contestants"), (snapshot) => {
       const list = snapshot.docs.map((doc) => {
-        const data = doc.data();
+        const data = doc.data() || {};
+
+        const firstName = clean(data.firstName || "");
+        const lastName = clean(data.lastName || "");
+
+        const wings = Array.isArray(data.wings)
+          ? data.wings.map(clean)
+          : [];
+
+        const burgerVotes =
+          typeof data.burgerVotes === "number" ? data.burgerVotes : 0;
+        const friesVotes =
+          typeof data.friesVotes === "number" ? data.friesVotes : 0;
+
         return {
           id: doc.id,
-          ...data,
-          totalVotes: (data.burgerVotes || 0) + (data.friesVotes || 0),
+          firstName,
+          lastName,
+          wings,
+          burgerVotes,
+          friesVotes,
+          totalVotes: burgerVotes + friesVotes,
+          photoDataUrl: data.photoDataUrl || "",
         };
       });
 
-      // sort by total votes, highest first
-      list.sort((a, b) => b.totalVotes - a.totalVotes);
+      // Stable sorting: total votes first, then name
+      list.sort((a, b) => {
+        const diff = b.totalVotes - a.totalVotes;
+        if (diff !== 0) return diff;
+
+        // tie-breaker
+        return (a.firstName + a.lastName).localeCompare(
+          b.firstName + b.lastName
+        );
+      });
 
       setContestants(list);
     });
@@ -88,7 +119,7 @@ const LeaderboardPage = () => {
                     {c.firstName} {c.lastName}
                   </div>
 
-                  {c.wings && c.wings.length > 0 && (
+                  {c.wings.length > 0 && (
                     <div
                       style={{
                         fontSize: "12px",
@@ -110,8 +141,8 @@ const LeaderboardPage = () => {
                     minWidth: "80px",
                   }}
                 >
-                  <IonText>🩹 {c.burgerVotes || 0}</IonText>
-                  <IonText>💀 {c.friesVotes || 0}</IonText>
+                  <IonText>🩹 {c.burgerVotes}</IonText>
+                  <IonText>💀 {c.friesVotes}</IonText>
                   <IonText style={{ marginTop: "4px" }}>
                     🗳️ <b>{c.totalVotes}</b>
                   </IonText>

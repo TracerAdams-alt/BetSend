@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
   IonApp,
   IonTabs,
@@ -15,79 +15,55 @@ import { Route, Redirect } from "react-router-dom";
 
 import {
   diceOutline,
+  chatbubblesOutline,
   personCircleOutline,
   trophyOutline,
-  browsersOutline,  // 👈 needed for Bulletin tab
 } from "ionicons/icons";
 
 // Pages
 import LobbyPage from "./components/LobbyPage.jsx";
-import BulletinPage from "./components/BulletinPage.jsx";   // 👈 UPDATED
+import BulletinPage from "./components/BulletinPage.jsx";
 import AccountPage from "./components/AccountPage.jsx";
-import SignUpPage from "./components/SignUpPage.jsx";
-import SignInPage from "./components/SignInPage.jsx";
+import AddContestantPage from "./components/AddContestantPage.jsx";
 import LeaderboardPage from "./components/LeaderboardPage.jsx";
+import SignInPage from "./components/SignInPage.jsx";
+import SignUpPage from "./components/SignUpPage.jsx";
 
-// UI Components
-import AuthButtons from "./components/AuthButtons.jsx";
-import WelcomeModal from "./components/WelcomeModal.jsx";
-
-// Firebase
-import { auth } from "./firebase";
-import { onAuthStateChanged } from "firebase/auth";
+// Ionic global CSS
+import "@ionic/react/css/core.css";
+import "@ionic/react/css/normalize.css";
+import "@ionic/react/css/structure.css";
+import "@ionic/react/css/typography.css";
+import "@ionic/react/css/padding.css";
+import "@ionic/react/css/float-elements.css";
+import "@ionic/react/css/text-alignment.css";
+import "@ionic/react/css/text-transformation.css";
+import "@ionic/react/css/flex-utils.css";
+import "@ionic/react/css/display.css";
 
 setupIonicReact();
 
 const App = () => {
-  const [user, setUser] = useState(null);
-
-  // Listen for login/logout state
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-
-    return () => unsub();
-  }, []);
-
   return (
     <IonApp className="casino-app">
-      {/* Welcome message modal */}
-      <WelcomeModal />
-
       <IonReactRouter>
-        {/* Sign In / Sign Up bar (only shows if logged out) */}
-        <AuthButtons />
-
         <IonTabs>
           <IonRouterOutlet>
-
             {/* MAIN ROUTES */}
             <Route path="/lobby" component={LobbyPage} exact />
-
-            {/* BULLETIN ROUTE (replaces Game) */}
-            <Route path="/bulletin" component={BulletinPage} exact />
-
             <Route path="/leaderboard" component={LeaderboardPage} exact />
-
-            {/* ACCOUNT PAGE — only for logged-in users */}
-            <Route
-              path="/account"
-              exact
-              render={() =>
-                user ? <AccountPage /> : <Redirect to="/signin" />
-              }
-            />
+            <Route path="/bulletin" component={BulletinPage} exact />
+            <Route path="/account" component={AccountPage} exact />
+            <Route path="/add-contestant" component={AddContestantPage} exact />
 
             {/* AUTH ROUTES */}
-            <Route path="/signup" component={SignUpPage} exact />
             <Route path="/signin" component={SignInPage} exact />
+            <Route path="/signup" component={SignUpPage} exact />
 
             {/* DEFAULT REDIRECT */}
             <Route exact path="/">
               <Redirect to="/lobby" />
             </Route>
-
           </IonRouterOutlet>
 
           {/* BOTTOM TAB BAR */}
@@ -97,22 +73,20 @@ const App = () => {
               <IonLabel>Lobby</IonLabel>
             </IonTabButton>
 
+            <IonTabButton tab="leaderboard" href="/leaderboard">
+              <IonIcon icon={trophyOutline} />
+              <IonLabel>Leaderboard</IonLabel>
+            </IonTabButton>
+
             <IonTabButton tab="bulletin" href="/bulletin">
-              <IonIcon icon={browsersOutline} />
+              <IonIcon icon={chatbubblesOutline} />
               <IonLabel>Bulletin</IonLabel>
             </IonTabButton>
 
-            <IonTabButton tab="leaderboard" href="/leaderboard">
-              <IonIcon icon={trophyOutline} />
-              <IonLabel>Leaders</IonLabel>
+            <IonTabButton tab="account" href="/account">
+              <IonIcon icon={personCircleOutline} />
+              <IonLabel>Account</IonLabel>
             </IonTabButton>
-
-            {user && (
-              <IonTabButton tab="account" href="/account">
-                <IonIcon icon={personCircleOutline} />
-                <IonLabel>Account</IonLabel>
-              </IonTabButton>
-            )}
           </IonTabBar>
         </IonTabs>
       </IonReactRouter>

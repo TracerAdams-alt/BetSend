@@ -15,7 +15,21 @@ import {
 } from "@ionic/react";
 
 import { auth, db } from "../firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+} from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+
+const MAX_WING_LENGTH = 40;
+const MAX_WINGS_COUNT = 20;
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // ~2MB
 
 const AccountPage = () => {
   const [profile, setProfile] = useState({
@@ -23,106 +37,227 @@ const AccountPage = () => {
     lastName: "",
     photoDataUrl: "",
     wings: [],
+    location: "",
   });
 
   const [wingInput, setWingInput] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
 
-  // 🔥 Load profile one time after auth is ready
+  const [nameSuggestions, setNameSuggestions] = useState([]);
+  const [unclaimedList, setUnclaimedList] = useState([]);
+  const [claimedContestantId, setClaimedContestantId] = useState(null);
+
+  // ============================================================
+  // LOAD AUTH + PROFILE
+  // ============================================================
   useEffect(() => {
-    const loadProfile = async () => {
-      const user = auth.currentUser;
-      if (!user) {
-        console.log("No user found — route protection should prevent this.");
+    return onAuthStateChanged(auth, async (u) => {
+      if (!u) {
+        setUser(null);
+        setLoading(false);
         return;
       }
+      setUser(u);
 
-      const ref = doc(db, "users", user.uid);
-      const snap = await getDoc(ref);
+      try {
+        const ref = doc(db, "users", u.uid);
+        const snap = await getDoc(ref);
 
-      if (snap.exists()) {
-        setProfile(snap.data());
+        if (snap.exists()) {
+          const data = snap.data();
+          setProfile({
+            firstName: data.firstName || "",
+            lastName: data.lastName || "",
+            photoDataUrl: data.photoDataUrl || "",
+            wings: Array.isArray(data.wings) ? data.wings : [],
+            location: data.location || "",
+          });
+          setClaimedContestantId(data.claimedContestantId || null);
+        }
+      } catch (err) {
+        console.error("Load profile error:", err);
       }
-
       setLoading(false);
-    };
-
-    // allow auth.currentUser to populate
-    setTimeout(loadProfile, 200);
+    });
   }, []);
 
-  // ================================
-  // INPUT HANDLERS
-  // ================================
+  // Load all unclaimed contestants once
+  useEffect(() => {
+    const loadUnclaimed = async () => {
+      try {
+        const q = query(
+          collection(db, "contestants"),
+          where("isUnclaimed", "==", true)
+        );
+        const snap = await getDocs(q);
+        setUnclaimedList(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.log("Unclaimed error:", err);
+      }
+    };
+    loadUnclaimed();
+  }, []);
 
+  // ============================================================
+  // INPUT HANDLERS
+  // ============================================================
   const handleNameChange = (field) => (e) => {
-    setProfile((prev) => ({ ...prev, [field]: e.detail.value }));
+    const value = e.detail.value ?? "";
+    if (value.length > 60) return;
+
+    const updated = { ...profile, [field]: value };
+    setProfile(updated);
+
+    const fullName = `${updated.firstName} ${updated.lastName}`.trim();
+
+    if (fullName.length >= 2) {
+      const search = fullName.toLowerCase();
+      const matches = unclaimedList.filter((c) => {
+        const candidate = (
+          c.nameSearch ||
+          `${c.firstName || ""} ${c.lastName || ""}`
+        ).toLowerCase();
+        return candidate.includes(search);
+      });
+
+      setNameSuggestions(matches.slice(0, 5));
+    } else {
+      setNameSuggestions([]);
+    }
+
     setStatus("");
+  };
+
+  const handleLocationChange = (e) => {
+    setProfile((p) => ({ ...p, location: e.detail.value ?? "" }));
   };
 
   const handleWingChange = (e) => {
-    setWingInput(e.detail.value);
+    const v = e.detail.value ?? "";
+    if (v.length <= MAX_WING_LENGTH) setWingInput(v);
   };
 
   const addWing = () => {
-    if (!wingInput.trim()) return;
+    const trimmed = wingInput.trim();
+    if (!trimmed) return;
+    if (trimmed.length > MAX_WING_LENGTH) return;
+    if (profile.wings.length >= MAX_WINGS_COUNT) return;
+    if (profile.wings.includes(trimmed)) return;
 
-    setProfile((prev) => ({
-      ...prev,
-      wings: [...prev.wings, wingInput.trim()],
-    }));
-
+    setProfile((p) => ({ ...p, wings: [...p.wings, trimmed] }));
     setWingInput("");
-    setStatus("");
   };
 
-  const handleWingKeyPress = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addWing();
+  const removeWing = (i) => {
+    setProfile((p) => ({
+      ...p,
+      wings: p.wings.filter((_, idx) => idx !== i),
+    }));
+  };
+
+  // ============================================================
+  // PHOTO UPLOAD
+  // ============================================================
+  const handlePhotoChange = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) return;
+    if (f.size > MAX_IMAGE_BYTES) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () =>
+      setProfile((p) => ({ ...p, photoDataUrl: reader.result }));
+    reader.readAsDataURL(f);
+  };
+
+  // ============================================================
+  // CLAIM A SUGGESTED MATCH
+  // ============================================================
+  const handleClaim = async (c) => {
+    if (!user) return;
+
+    const ok = window.confirm(
+      `Claim "${c.firstName} ${c.lastName}" and inherit their votes?`
+    );
+    if (!ok) return;
+
+    const cleanFirst = profile.firstName.trim();
+    const cleanLast = profile.lastName.trim();
+
+    try {
+      // Update contestant doc
+      const contestantRef = doc(db, "contestants", c.id);
+      await updateDoc(contestantRef, {
+        isUnclaimed: false,
+        ownerUid: user.uid,
+        firstName: cleanFirst,
+        lastName: cleanLast,
+        updatedAt: Date.now(),
+      });
+
+      // Update user doc
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        claimedContestantId: c.id,
+        firstName: cleanFirst,
+        lastName: cleanLast,
+        updatedAt: Date.now(),
+      });
+
+      setClaimedContestantId(c.id);
+      setNameSuggestions([]);
+      setStatus("Contestant claimed!");
+    } catch (err) {
+      console.error("Claim error:", err);
+      setStatus("Failed to claim contestant.");
     }
   };
 
-  const removeWing = (index) => {
-    setProfile((prev) => ({
-      ...prev,
-      wings: prev.wings.filter((_, i) => i !== index),
-    }));
-    setStatus("");
-  };
-
-  // ================================
-  // PHOTO UPLOAD
-  // ================================
-  const handlePhotoChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setProfile((prev) => ({ ...prev, photoDataUrl: reader.result }));
-      setStatus("Photo updated (not saved yet)");
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // ================================
-  // SAVE TO FIRESTORE
-  // ================================
+  // ============================================================
+  // SAVE PROFILE → USERS + CONTESTANTS
+  // ============================================================
   const handleSave = async () => {
-    const user = auth.currentUser;
-    if (!user) {
-      setStatus("You must be signed in to save.");
+    if (!user) return;
+
+    const cleanFirst = profile.firstName.trim();
+    const cleanLast = profile.lastName.trim();
+    const cleanLocation = profile.location.trim();
+    const cleanWings = profile.wings.map((w) => w.trim());
+
+    if (!cleanFirst && !cleanLast) {
+      setStatus("Enter at least a first or last name.");
       return;
     }
 
     try {
-      const ref = doc(db, "users", user.uid);
+      // ---- Save user profile ----
+      const userRef = doc(db, "users", user.uid);
       await setDoc(
-        ref,
+        userRef,
         {
-          ...profile,
+          firstName: cleanFirst,
+          lastName: cleanLast,
+          photoDataUrl: profile.photoDataUrl || "",
+          wings: cleanWings,
+          location: cleanLocation,
+          claimedContestantId: claimedContestantId || null,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      );
+
+      // ---- Sync to contestant document (id == uid) ----
+      const contestantRef = doc(db, "contestants", user.uid);
+      await setDoc(
+        contestantRef,
+        {
+          firstName: cleanFirst,
+          lastName: cleanLast,
+          photoDataUrl: profile.photoDataUrl || "",
+          wings: cleanWings,
+          location: cleanLocation,
           updatedAt: Date.now(),
         },
         { merge: true }
@@ -135,33 +270,16 @@ const AccountPage = () => {
     }
   };
 
-  // ================================
-  // LOGOUT
-  // ================================
   const handleLogout = async () => {
-    try {
-      await auth.signOut();
-      window.location.href = "/signin";
-    } catch (err) {
-      console.error("Logout error:", err);
-    }
+    await auth.signOut();
+    window.location.href = "/signin";
   };
 
-  // ================================
-  // LOADING SCREEN
-  // ================================
   if (loading) {
     return (
       <IonPage>
         <IonContent>
-          <div
-            style={{
-              padding: 40,
-              color: "white",
-              textAlign: "center",
-              fontSize: "20px",
-            }}
-          >
+          <div style={{ padding: 40, textAlign: "center" }}>
             Loading profile...
           </div>
         </IonContent>
@@ -169,41 +287,36 @@ const AccountPage = () => {
     );
   }
 
-  // ================================
-  // PAGE UI
-  // ================================
+  const displayName =
+    profile.firstName || profile.lastName
+      ? `${profile.firstName} ${profile.lastName}`.trim()
+      : "Unnamed Player";
+
   return (
     <IonPage>
-      <IonHeader translucent={true}>
+      <IonHeader translucent>
         <IonToolbar color="dark">
           <IonTitle>My Account</IonTitle>
         </IonToolbar>
       </IonHeader>
 
       <IonContent fullscreen>
-        <div style={{ padding: "16px", maxWidth: "520px", margin: "0 auto" }}>
+        <div style={{ padding: 16, maxWidth: 520, margin: "0 auto" }}>
           {/* Header */}
-          <div
-            style={{
-              display: "flex",
-              gap: "16px",
-              alignItems: "center",
-              marginBottom: "10px",
-            }}
-          >
-            <IonAvatar style={{ width: "64px", height: "64px" }}>
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <IonAvatar style={{ width: 64, height: 64 }}>
               {profile.photoDataUrl ? (
-                <img src={profile.photoDataUrl} alt="Profile" />
+                <img src={profile.photoDataUrl} alt="profile" />
               ) : (
                 <div
                   style={{
                     width: "100%",
                     height: "100%",
+                    background: "rgba(255,255,255,0.2)",
                     display: "flex",
-                    alignItems: "center",
                     justifyContent: "center",
-                    background: "rgba(255,255,255,0.1)",
-                    fontSize: "24px",
+                    alignItems: "center",
+                    fontSize: 24,
                   }}
                 >
                   ?
@@ -212,16 +325,12 @@ const AccountPage = () => {
             </IonAvatar>
 
             <IonText>
-              <h2 style={{ margin: 0 }}>
-                {profile.firstName || profile.lastName
-                  ? `${profile.firstName} ${profile.lastName}`
-                  : "Unnamed Player"}
-              </h2>
+              <h2 style={{ margin: 0 }}>{displayName}</h2>
             </IonText>
           </div>
 
-          {/* Upload Photo Button */}
-          <div style={{ textAlign: "center", marginBottom: "20px" }}>
+          {/* Photo button */}
+          <div style={{ textAlign: "center", marginTop: 10 }}>
             <input
               id="photoInput"
               type="file"
@@ -229,15 +338,12 @@ const AccountPage = () => {
               onChange={handlePhotoChange}
               style={{ display: "none" }}
             />
-            <IonButton
-              onClick={() => document.getElementById("photoInput").click()}
-              size="small"
-            >
+            <IonButton onClick={() => document.getElementById("photoInput").click()}>
               Upload Photo
             </IonButton>
           </div>
 
-          {/* Name Fields */}
+          {/* Inputs */}
           <IonList>
             <IonItem>
               <IonLabel position="stacked">First Name</IonLabel>
@@ -254,43 +360,72 @@ const AccountPage = () => {
                 onIonChange={handleNameChange("lastName")}
               />
             </IonItem>
+
+            <IonItem>
+              <IonLabel position="stacked">Location</IonLabel>
+              <IonInput
+                placeholder="City, State or Country"
+                value={profile.location}
+                onIonChange={handleLocationChange}
+              />
+            </IonItem>
           </IonList>
 
-          {/* Wings List */}
-          <div style={{ marginTop: "20px" }}>
+          {/* Suggestions */}
+          {nameSuggestions.length > 0 && (
+            <div
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                padding: 10,
+                borderRadius: 8,
+                marginTop: 10,
+              }}
+            >
+              <IonText>Possible matches:</IonText>
+              {nameSuggestions.map((s) => (
+                <div
+                  key={s.id}
+                  style={{
+                    marginTop: 8,
+                    padding: 8,
+                    borderRadius: 6,
+                    background: "rgba(255,255,255,0.15)",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => handleClaim(s)}
+                >
+                  {s.firstName} {s.lastName}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Wings */}
+          <div style={{ marginTop: 20 }}>
             <IonLabel>Wings</IonLabel>
 
             <IonItem>
               <IonInput
-                placeholder="Wings"
+                placeholder="Add Wing"
                 value={wingInput}
                 onIonChange={handleWingChange}
-                onKeyPress={handleWingKeyPress}
               />
-              <IonButton size="small" onClick={addWing}>
-                Add
-              </IonButton>
+              <IonButton onClick={addWing}>Add</IonButton>
             </IonItem>
 
-            {profile.wings.map((wing, idx) => (
+            {profile.wings.map((w, i) => (
               <div
-                key={idx}
+                key={i}
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   padding: "6px 4px",
-                  opacity: 0.85,
                 }}
               >
-                <span>{wing}</span>
+                <span>{w}</span>
                 <span
-                  style={{
-                    cursor: "pointer",
-                    color: "#ff6b6b",
-                    fontWeight: "bold",
-                    marginLeft: "10px",
-                  }}
-                  onClick={() => removeWing(idx)}
+                  style={{ cursor: "pointer", color: "#ff5b5b", fontWeight: "bold" }}
+                  onClick={() => removeWing(i)}
                 >
                   ✕
                 </span>
@@ -298,21 +433,16 @@ const AccountPage = () => {
             ))}
           </div>
 
-          {/* Save Button */}
-          <IonButton
-            expand="block"
-            color="primary"
-            style={{ marginTop: "24px" }}
-            onClick={handleSave}
-          >
+          {/* Save */}
+          <IonButton expand="block" style={{ marginTop: 20 }} onClick={handleSave}>
             Save Account Settings
           </IonButton>
 
-          {/* Logout Button */}
+          {/* Logout */}
           <IonButton
             expand="block"
             color="danger"
-            style={{ marginTop: "12px" }}
+            style={{ marginTop: 12 }}
             onClick={handleLogout}
           >
             Log Out
@@ -320,7 +450,7 @@ const AccountPage = () => {
 
           {status && (
             <IonText>
-              <p style={{ marginTop: "10px", opacity: 0.9 }}>{status}</p>
+              <p style={{ marginTop: 10 }}>{status}</p>
             </IonText>
           )}
         </div>
