@@ -10,25 +10,40 @@ import {
   IonLabel,
   IonInput,
   IonButton,
-  IonText
+  IonText,
 } from "@ionic/react";
 
-import { auth, db, googleProvider, createContestantIfMissing } from "../firebase";
-import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import {
+  auth,
+  db,
+  googleProvider,
+  createContestantIfMissing,
+} from "../firebase";
+import {
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+} from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
+
+const TEST_ACCOUNT = {
+  email: "test.claim@speedfly.dev",
+  password: "test1234",
+};
 
 const SignUpPage = () => {
   const [form, setForm] = useState({
-    username: "",
-    email: "",
-    password: "",
-    confirmPassword: ""
+    email: TEST_ACCOUNT.email,
+    password: TEST_ACCOUNT.password,
+    confirmPassword: TEST_ACCOUNT.password,
   });
 
   const [message, setMessage] = useState("");
 
   const handleChange = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.detail.value }));
+    setForm((prev) => ({
+      ...prev,
+      [field]: e.detail.value ?? "",
+    }));
   };
 
   // ============================
@@ -38,16 +53,17 @@ const SignUpPage = () => {
     e.preventDefault();
     setMessage("");
 
-    try {
-      if (!form.email || !form.password) {
-        setMessage("Please fill out all required fields.");
-        return;
-      }
-      if (form.password !== form.confirmPassword) {
-        setMessage("Passwords do not match.");
-        return;
-      }
+    if (!form.email || !form.password) {
+      setMessage("Please fill out all required fields.");
+      return;
+    }
 
+    if (form.password !== form.confirmPassword) {
+      setMessage("Passwords do not match.");
+      return;
+    }
+
+    try {
       const userCred = await createUserWithEmailAndPassword(
         auth,
         form.email,
@@ -56,21 +72,28 @@ const SignUpPage = () => {
 
       const user = userCred.user;
 
-      // Create user profile
-      await setDoc(doc(db, "users", user.uid), {
-        firstName: "",
-        lastName: "",
-        photoDataUrl: "",
-        wings: []
-      });
+      // Create Firestore user profile
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          firstName: "",
+          lastName: "",
+          photoDataUrl: "",
+          wings: [],
+          harnesses: [],
+          location: "",
+          createdAt: Date.now(),
+        },
+        { merge: true }
+      );
 
-      // Create contestant doc
+      // Create contestant doc if missing
       await createContestantIfMissing(user.uid);
 
-      setMessage("Account created!");
+      setMessage("Account created successfully!");
     } catch (err) {
       console.error(err);
-      setMessage("Signup failed.");
+      setMessage("Signup failed: " + err.message);
     }
   };
 
@@ -78,23 +101,26 @@ const SignUpPage = () => {
   // GOOGLE SIGN-IN
   // ============================
   const handleGoogleSignIn = async () => {
+    setMessage("");
+
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      // Create Firestore user profile if missing
       await setDoc(
         doc(db, "users", user.uid),
         {
           firstName: user.displayName?.split(" ")[0] || "",
           lastName: user.displayName?.split(" ")[1] || "",
           photoDataUrl: user.photoURL || "",
-          wings: []
+          wings: [],
+          harnesses: [],
+          location: "",
+          createdAt: Date.now(),
         },
         { merge: true }
       );
 
-      // Create contestant entry
       await createContestantIfMissing(user.uid);
 
       setMessage("Signed in with Google!");
@@ -103,6 +129,8 @@ const SignUpPage = () => {
       setMessage("Google sign-in failed.");
     }
   };
+
+  const isError = message.toLowerCase().includes("fail");
 
   return (
     <IonPage>
@@ -113,11 +141,28 @@ const SignUpPage = () => {
       </IonHeader>
 
       <IonContent>
-        <div style={{ padding: "16px", maxWidth: "480px", margin: "0 auto" }}>
+        <div style={{ padding: 16, maxWidth: 480, margin: "0 auto" }}>
+          {/* TEST ACCOUNT NOTICE */}
+          <IonText color="warning">
+            <p style={{ fontSize: 13, marginBottom: 12 }}>
+              🧪 Test account is pre-filled for vote-claim testing.
+            </p>
+          </IonText>
+
+          {/* GOOGLE */}
           <IonButton expand="block" onClick={handleGoogleSignIn}>
             Continue with Google
           </IonButton>
 
+          <div
+            style={{
+              height: 1,
+              background: "rgba(255,255,255,0.2)",
+              margin: "20px 0",
+            }}
+          />
+
+          {/* EMAIL SIGNUP */}
           <form onSubmit={handleSubmit}>
             <IonList>
               <IonItem>
@@ -148,14 +193,18 @@ const SignUpPage = () => {
               </IonItem>
             </IonList>
 
-            <IonButton expand="block" type="submit" style={{ marginTop: "16px" }}>
+            <IonButton
+              expand="block"
+              type="submit"
+              style={{ marginTop: 16 }}
+            >
               Create Account
             </IonButton>
           </form>
 
           {message && (
-            <IonText color="success">
-              <p>{message}</p>
+            <IonText color={isError ? "danger" : "success"}>
+              <p style={{ marginTop: 12 }}>{message}</p>
             </IonText>
           )}
         </div>

@@ -31,6 +31,8 @@ const MAX_CONTESTANT_CREATIONS = 10;
 // 🔥 Levenshtein Distance (Fuzzy Similarity Algorithm)
 // ---------------------------------------------------------
 function levenshtein(a, b) {
+  if (!a || !b) return Infinity;
+
   const matrix = Array.from({ length: a.length + 1 }, () => []);
 
   for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
@@ -41,16 +43,15 @@ function levenshtein(a, b) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
 
       matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1, // deletion
-        matrix[i][j - 1] + 1, // insertion
-        matrix[i - 1][j - 1] + cost // substitution
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
       );
     }
   }
 
   return matrix[a.length][b.length];
 }
-
 // ---------------------------------------------------------
 
 const AddContestantPage = () => {
@@ -73,10 +74,17 @@ const AddContestantPage = () => {
       return;
     }
 
-    const parts = trimmed.split(" ");
-    const firstName = parts[0];
+    // ✅ NORMALIZED SPLIT (fixes empty last names)
+    const parts = trimmed.split(/\s+/);
+    const firstName = parts[0] || "";
     const lastName = parts.slice(1).join(" ");
-    const typedName = trimmed.toLowerCase();
+    const typedName = `${firstName} ${lastName}`.trim().toLowerCase();
+
+    // 🚫 HARD STOP: never create empty contestants
+    if (!firstName && !lastName) {
+      setStatus("Invalid name.");
+      return;
+    }
 
     if (saving) return;
     setSaving(true);
@@ -110,25 +118,34 @@ const AddContestantPage = () => {
       let blockDueToSimilarity = false;
 
       existingSnap.forEach((docSnap) => {
-        const data = docSnap.data();
-        const fullName =
-          `${data.firstName || ""} ${data.lastName || ""}`.trim();
-        const fullLower = fullName.toLowerCase();
+        const data = docSnap.data() || {};
+
+        // ✅ IGNORE EMPTY / INVALID CONTESTANTS
+        const fn = (data.firstName || "").trim();
+        const ln = (data.lastName || "").trim();
+        if (!fn && !ln) return;
+
+        const fullLower = `${fn} ${ln}`.trim().toLowerCase();
+        if (fullLower.length < 2) return;
+
         const tokens = fullLower.split(" ");
 
-        // exact match:
+        // exact match
         if (fullLower === typedName) {
           blockDueToSimilarity = true;
           return;
         }
 
-        // prefix match:
-        if (fullLower.startsWith(typedName) || typedName.startsWith(fullLower)) {
+        // prefix / contains match
+        if (
+          fullLower.startsWith(typedName) ||
+          typedName.startsWith(fullLower)
+        ) {
           blockDueToSimilarity = true;
           return;
         }
 
-        // token match:
+        // token match
         const typedTokens = typedName.split(" ");
         typedTokens.forEach((t, i) => {
           if (tokens[i] && tokens[i].startsWith(t)) {
@@ -136,7 +153,7 @@ const AddContestantPage = () => {
           }
         });
 
-        // fuzzy match:
+        // fuzzy match
         const distance = levenshtein(typedName, fullLower);
         if (distance <= 2) {
           blockDueToSimilarity = true;

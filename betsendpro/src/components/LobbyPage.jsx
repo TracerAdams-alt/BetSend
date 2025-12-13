@@ -28,6 +28,7 @@ import {
   increment,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import WelcomeModal from "./WelcomeModal";
 
 // Basic text sanitizer
 const clean = (str) =>
@@ -157,6 +158,7 @@ const LobbyPage = () => {
       </IonHeader>
 
       <IonContent fullscreen>
+      <WelcomeModal />
         <div className="lobby-container">
           
           {/* Top Bar */}
