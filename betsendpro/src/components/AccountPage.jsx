@@ -630,6 +630,7 @@ const AccountPage = () => {
             Stars={Stars}
           />
 
+        <div style={{ marginTop: 40 }}>
           <IonButton expand="block" onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save Account Settings"}
           </IonButton>
@@ -642,6 +643,7 @@ const AccountPage = () => {
           >
             Log Out
           </IonButton>
+        </div>
 
           {status && (
             <IonText>
@@ -663,11 +665,36 @@ const Section = ({ title, items, reviews, setReviews, removeItem, Stars }) => (
     {items.map((item) => {
       const key = normalizeKey(item);
       const review = reviews[key] || { text: "", rating: 0 };
-
+    
       return (
         <div key={key} style={{ marginTop: 12 }}>
-          <strong>{item}</strong>
-
+    
+          {/* NAME + REMOVE */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <strong>{item}</strong>
+    
+            <span
+              onClick={() => removeItem(item)}
+              title="Remove"
+              style={{
+                cursor: "pointer",
+                color: "#ff5b5b",
+                fontSize: 18,
+                fontWeight: "bold",
+                lineHeight: 1,
+                padding: "2px 6px",
+              }}
+            >
+              ×
+            </span>
+          </div>
+    
           <Stars
             value={review.rating}
             onChange={(r) =>
@@ -677,7 +704,7 @@ const Section = ({ title, items, reviews, setReviews, removeItem, Stars }) => (
               }))
             }
           />
-
+    
           <IonTextarea
             value={review.text}
             placeholder={`Your thoughts on this ${title.slice(0, -1)}...`}
@@ -690,14 +717,15 @@ const Section = ({ title, items, reviews, setReviews, removeItem, Stars }) => (
             autoGrow
           />
 
-          <IonButton
-            size="small"
-            color="danger"
-            style={{ marginTop: 6 }}
-            onClick={() => removeItem(item)}
-          >
-            Remove
-          </IonButton>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+        </div>
+
         </div>
       );
     })}
