@@ -187,7 +187,14 @@ const LobbyPage = () => {
           <div className="contestant-list-container">
             <IonList style={{ background: "transparent" }}>
               {contestants.map((c) => (
-                <IonItem key={c.id} className="contestant-item">
+                <IonItem
+                key={c.id}
+                className="contestant-item"
+                button
+                detail={false}
+                onClick={() => history.push(`/profile/${c.id}`)}
+              >
+              
                   
                   {/* Avatar */}
                   <IonAvatar slot="start" className="contestant-avatar">
@@ -237,7 +244,12 @@ const LobbyPage = () => {
                   </IonLabel>
 
                   {/* Voting UI */}
-                  <div className="vote-panel" slot="end">
+                  <div
+                  className="vote-panel"
+                  slot="end"
+                  onClick={(e) => e.stopPropagation()}
+                >
+
                     {user ? (
                       <>
                         <IonRadioGroup

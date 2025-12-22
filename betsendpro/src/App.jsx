@@ -33,6 +33,8 @@ import LeaderboardPage from "./components/LeaderboardPage.jsx";
 import SignInPage from "./components/SignInPage.jsx";
 import SignUpPage from "./components/SignUpPage.jsx";
 import SearchPage from "./components/SearchPage.jsx";
+import PublicProfilePage from "./components/PublicProfilePage.jsx";
+
 
 // Auth buttons
 import AuthButtons from "./components/AuthButtons.jsx";
@@ -84,6 +86,8 @@ const App = () => {
             <Route path="/bulletin" component={BulletinPage} exact />
             <Route path="/search" component={SearchPage} exact />
             <Route path="/add-contestant" component={AddContestantPage} exact />
+            <Route path="/profile/:uid" component={PublicProfilePage} exact/>
+
 
             {/* PROTECTED ACCOUNT */}
             <Route
@@ -102,6 +106,7 @@ const App = () => {
             <Route exact path="/">
               <Redirect to="/lobby" />
             </Route>
+            
 
           </IonRouterOutlet>
 
