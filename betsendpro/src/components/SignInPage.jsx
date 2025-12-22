@@ -32,7 +32,7 @@ const SignInPage = () => {
   };
 
   // ====================================================
-  // 🚀 HANDLE EMAIL / PASSWORD SIGN-IN
+  //  HANDLE EMAIL / PASSWORD SIGN-IN
   // ====================================================
   const handleEmailSignIn = async (e) => {
     e.preventDefault();
@@ -74,7 +74,7 @@ const SignInPage = () => {
   };
 
   // ====================================================
-  // 🚀 GOOGLE SIGN-IN
+  //  GOOGLE SIGN-IN
   // ====================================================
   const handleGoogleSignIn = async () => {
     setMessage("");

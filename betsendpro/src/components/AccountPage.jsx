@@ -42,9 +42,7 @@ const clean = (str) =>
     : "";
 
 /* ============================================================
-   ✅ CLIENT-SIDE IMAGE COMPRESSION (NEW)
-   - Allows "any size" upload by resizing/compressing before saving
-   - Output stays small enough for Firestore
+   CLIENT-SIDE IMAGE COMPRESSION
    ============================================================ */
 const compressImageToDataUrl = (file, maxDim = 900, quality = 0.82) =>
   new Promise((resolve, reject) => {
@@ -107,7 +105,7 @@ const AccountPage = () => {
 
   const [user, setUser] = useState(null);
 
-  // ✅ CLAIM FUNCTIONALITY (RESTORED)
+  // CLAIM FUNCTIONALITY 
   const [unclaimedList, setUnclaimedList] = useState([]);
   const [nameSuggestions, setNameSuggestions] = useState([]);
   const [claimedContestantId, setClaimedContestantId] = useState(null);
@@ -243,7 +241,7 @@ const AccountPage = () => {
   };
 
   // ============================================================
-  // PHOTO UPLOAD (✅ NOW COMPRESSED, NO 2MB HARD CAP)
+  // PHOTO UPLOAD 
   // ============================================================
   const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0];
@@ -287,7 +285,7 @@ const AccountPage = () => {
   };
 
   // ============================================================
-  // ✅ CLAIM A CONTESTANT (RESTORED)
+  // CLAIM A CONTESTANT
   // ============================================================
   const handleClaim = async (c) => {
     if (!user) return;
@@ -333,7 +331,6 @@ const AccountPage = () => {
 
   // ============================================================
   // SAVE SETTINGS + REVIEWS
-  // ✅ FIX: also sync to contestants so Lobby updates
   // ============================================================
   const handleSave = async () => {
     if (!user || saving) return;
@@ -358,9 +355,7 @@ const AccountPage = () => {
         { merge: true }
       );
 
-      // ✅ NEW: Sync to contestant doc that Lobby reads
-      // If claimed -> use claimedContestantId
-      // If not claimed -> use own uid (createContestantIfMissing pattern)
+      // Sync to contestant doc that Lobby reads
       const targetContestantId = claimedContestantId || user.uid;
 
       await setDoc(

@@ -35,7 +35,7 @@ const BulletinPage = () => {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
 
-  // 🔥 Load posts (latest first)
+  //  Load posts (latest first)
   useEffect(() => {
     const q = query(
       collection(db, "bulletin"),

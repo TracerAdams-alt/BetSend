@@ -44,7 +44,7 @@ const SearchPage = () => {
       const reviewsFound = [];
 
       // ===============================
-      // 🔝 USER SEARCH (PRIMARY)
+      //  USER SEARCH (PRIMARY)
       // ===============================
       const usersSnap = await getDocs(collection(db, "users"));
       usersSnap.forEach((doc) => {
@@ -66,7 +66,7 @@ const SearchPage = () => {
       });
 
       // ===============================
-      // 🔽 WING REVIEWS
+      //  WING REVIEWS
       // ===============================
       const wingSnap = await getDocs(collectionGroup(db, "wingReviews"));
       wingSnap.forEach((doc) => {
@@ -89,7 +89,7 @@ const SearchPage = () => {
       });
 
       // ===============================
-      // 🔽 HARNESS REVIEWS
+      //  HARNESS REVIEWS
       // ===============================
       const harnessSnap = await getDocs(collectionGroup(db, "harnessReviews"));
       harnessSnap.forEach((doc) => {
@@ -152,7 +152,7 @@ const SearchPage = () => {
           )}
 
           {/* ===============================
-              🔝 USER RESULTS
+               USER RESULTS
              =============================== */}
           {userResults.length > 0 && (
             <>
@@ -203,7 +203,7 @@ const SearchPage = () => {
           )}
 
           {/* ===============================
-              🔽 REVIEW RESULTS
+               REVIEW RESULTS
              =============================== */}
           {reviewResults.length > 0 && (
             <>

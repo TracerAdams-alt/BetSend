@@ -28,7 +28,7 @@ import {
 const MAX_CONTESTANT_CREATIONS = 10;
 
 // ---------------------------------------------------------
-// 🔥 Levenshtein Distance (Fuzzy Similarity Algorithm)
+//  Levenshtein Distance (Fuzzy Similarity Algorithm)
 // ---------------------------------------------------------
 function levenshtein(a, b) {
   if (!a || !b) return Infinity;
