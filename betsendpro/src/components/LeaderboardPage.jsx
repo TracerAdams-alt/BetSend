@@ -10,143 +10,185 @@ import {
   IonAvatar,
   IonLabel,
   IonText,
+  IonButton,
 } from "@ionic/react";
 
-import { db } from "../firebase";
-import { collection, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase";
+import {
+  collection,
+  onSnapshot,
+  query,
+  where,
+  doc,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 
-// Small text sanitizer to block XSS injections
 const clean = (str) =>
   typeof str === "string"
     ? str.replace(/</g, "&lt;").replace(/>/g, "&gt;")
     : "";
 
+const VOTE_CATEGORIES = [
+  { id: "best_line", label: "🛫 Best Line" },
+  { id: "best_edit", label: "🎥 Best Edit" },
+];
+
+const RATING_CATEGORIES = [
+  { id: "steeze", label: "😎 Steeze" },
+  { id: "creativity", label: "🎨 Sustainability" },
+];
+
 const LeaderboardPage = () => {
   const [contestants, setContestants] = useState([]);
+  const [voteCounts, setVoteCounts] = useState({});
+  const [ratingStats, setRatingStats] = useState({});
 
+  /* Contestants */
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "contestants"), (snapshot) => {
-      const list = snapshot.docs.map((doc) => {
-        const data = doc.data() || {};
-
-        const firstName = clean(data.firstName || "");
-        const lastName = clean(data.lastName || "");
-
-        const wings = Array.isArray(data.wings)
-          ? data.wings.map(clean)
-          : [];
-
-        const burgerVotes =
-          typeof data.burgerVotes === "number" ? data.burgerVotes : 0;
-        const friesVotes =
-          typeof data.friesVotes === "number" ? data.friesVotes : 0;
-
-        return {
-          id: doc.id,
-          firstName,
-          lastName,
-          wings,
-          burgerVotes,
-          friesVotes,
-          totalVotes: burgerVotes + friesVotes,
-          photoDataUrl: data.photoDataUrl || "",
-        };
-      });
-
-      // Stable sorting: total votes first, then name
-      list.sort((a, b) => {
-        const diff = b.totalVotes - a.totalVotes;
-        if (diff !== 0) return diff;
-
-        // tie-breaker
-        return (a.firstName + a.lastName).localeCompare(
-          b.firstName + b.lastName
-        );
-      });
-
-      setContestants(list);
+    return onSnapshot(collection(db, "contestants"), (snap) => {
+      setContestants(
+        snap.docs.map((d) => {
+          const data = d.data() || {};
+          return {
+            id: d.id,
+            firstName: clean(data.firstName || ""),
+            lastName: clean(data.lastName || ""),
+            wings: Array.isArray(data.wings)
+              ? data.wings.map(clean)
+              : [],
+            photoDataUrl: data.photoDataUrl || "",
+          };
+        })
+      );
     });
-
-    return () => unsubscribe();
   }, []);
+
+  /* Votes */
+  useEffect(() => {
+    const q = query(
+      collection(db, "votes"),
+      where("type", "==", "award_vote")
+    );
+
+    return onSnapshot(q, (snap) => {
+      const counts = {};
+      snap.docs.forEach((d) => {
+        const { contestantId, category } = d.data();
+        counts[contestantId] ??= {};
+        counts[contestantId][category] =
+          (counts[contestantId][category] || 0) + 1;
+      });
+      setVoteCounts(counts);
+    });
+  }, []);
+
+  /* Ratings */
+  useEffect(() => {
+    return onSnapshot(collection(db, "ratings"), (snap) => {
+      const stats = {};
+      snap.docs.forEach((d) => {
+        const { contestantId, category, value } = d.data();
+        stats[contestantId] ??= {};
+        stats[contestantId][category] ??= { sum: 0, count: 0 };
+        stats[contestantId][category].sum += value;
+        stats[contestantId][category].count += 1;
+      });
+      setRatingStats(stats);
+    });
+  }, []);
+
+  const voteAward = async (contestantId, category) => {
+    const user = auth.currentUser;
+    if (!user) return alert("Sign in to vote");
+
+    await setDoc(
+      doc(db, "votes", `${user.uid}_${contestantId}_${category}`),
+      {
+        voterId: user.uid,
+        contestantId,
+        category,
+        type: "award_vote",
+        createdAt: serverTimestamp(),
+      }
+    );
+  };
+
+  const ratePilot = async (contestantId, category, value) => {
+    const user = auth.currentUser;
+    if (!user) return alert("Sign in to rate");
+
+    await setDoc(
+      doc(db, "ratings", `${user.uid}_${contestantId}_${category}`),
+      {
+        raterId: user.uid,
+        contestantId,
+        category,
+        value,
+        updatedAt: serverTimestamp(),
+      }
+    );
+  };
 
   return (
     <IonPage>
-      <IonHeader translucent={true}>
+      <IonHeader translucent>
         <IonToolbar color="dark">
           <IonTitle>Leaderboard</IonTitle>
         </IonToolbar>
       </IonHeader>
 
       <IonContent fullscreen>
-        <div style={{ padding: "16px", maxWidth: "800px", margin: "0 auto" }}>
-          <h2 style={{ marginBottom: "12px" }}>Top Contestants</h2>
-
+        <div style={{ padding: 16, maxWidth: 900, margin: "0 auto" }}>
           <IonList>
-            {contestants.map((c, index) => (
+            {contestants.map((c) => (
               <IonItem key={c.id}>
-                {/* Rank number */}
-                <div style={{ width: "24px", textAlign: "center", marginRight: "8px" }}>
-                  <IonText color="primary">
-                    <b>{index + 1}</b>
-                  </IonText>
-                </div>
-
-                {/* Avatar */}
                 <IonAvatar slot="start">
-                  {c.photoDataUrl ? (
-                    <img src={c.photoDataUrl} alt="avatar" />
-                  ) : (
-                    <div
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "20px",
-                        background: "rgba(255,255,255,0.15)",
-                      }}
-                    >
-                      ?
-                    </div>
-                  )}
+                  {c.photoDataUrl ? <img src={c.photoDataUrl} /> : "?"}
                 </IonAvatar>
 
-                {/* Name + Wings */}
                 <IonLabel>
-                  <div style={{ fontWeight: "bold", fontSize: "15px" }}>
-                    {c.firstName} {c.lastName}
+                  <strong>{c.firstName} {c.lastName}</strong>
+
+                  <div style={{ marginTop: 6 }}>
+                    {VOTE_CATEGORIES.map((cat) => (
+                      <IonButton
+                        key={cat.id}
+                        size="small"
+                        onClick={() => voteAward(c.id, cat.id)}
+                      >
+                        {cat.label} ({voteCounts[c.id]?.[cat.id] || 0})
+                      </IonButton>
+                    ))}
                   </div>
 
-                  {c.wings.length > 0 && (
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        opacity: 0.6,
-                        marginTop: "2px",
-                      }}
-                    >
-                      Wings: {c.wings.join(", ")}
-                    </div>
-                  )}
-                </IonLabel>
+                  {RATING_CATEGORIES.map((cat) => {
+                    const stat = ratingStats[c.id]?.[cat.id];
+                    const avg = stat
+                      ? (stat.sum / stat.count).toFixed(1)
+                      : "–";
 
-                {/* Vote totals */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    textAlign: "right",
-                    minWidth: "80px",
-                  }}
-                >
-                  <IonText>🩹 {c.burgerVotes}</IonText>
-                  <IonText>💀 {c.friesVotes}</IonText>
-                  <IonText style={{ marginTop: "4px" }}>
-                    🗳️ <b>{c.totalVotes}</b>
-                  </IonText>
-                </div>
+                    return (
+                      <div key={cat.id} style={{ marginTop: 8 }}>
+                        <IonText>
+                          {cat.label}: <b>{avg}</b>
+                        </IonText>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <IonButton
+                              key={n}
+                              size="small"
+                              fill="outline"
+                              onClick={() => ratePilot(c.id, cat.id, n)}
+                            >
+                              {n}
+                            </IonButton>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </IonLabel>
               </IonItem>
             ))}
           </IonList>
